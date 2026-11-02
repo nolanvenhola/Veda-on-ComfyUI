@@ -24,6 +24,8 @@ import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
 
 from veda_comfy import backends  # noqa: E402
+from veda_comfy import hardware  # noqa: E402
+from veda_comfy.backends import base  # noqa: E402
 from veda_comfy.core import bundle as veda_bundle  # noqa: E402
 from veda_comfy.core import engine as veda_engine  # noqa: E402
 from veda_comfy.core import h3_layout  # noqa: E402
@@ -39,6 +41,8 @@ CANVAS = {'16:9': (24, 42), '9:16': (42, 24), '1:1': (24, 24),
 def _sync(device):
     if device.type == 'cuda':
         torch.cuda.synchronize(device)
+    elif device.type == 'xpu':
+        torch.xpu.synchronize(device)
     elif device.type == 'mps':
         torch.mps.synchronize()
 
@@ -60,7 +64,9 @@ def _random_bundle(grid):
                                             head_shape)])
     weights = [torch.randn(HEADS, 3 * DIM, DIM, dtype=torch.bfloat16) * 1e-2
                for _ in range(LAYERS)]
-    return veda_bundle.PredictorBundle('random', LAYERS, HEADS, DIM, 0.1,
+    return veda_bundle.PredictorBundle('random', LAYERS, HEADS, DIM,
+                                       selection.Budget(ratio=0.1),
+                                       selection.Budget(ratio=0.1),
                                        table, weights, list(weights), {})
 
 
@@ -71,11 +77,15 @@ def main() -> None:
     parser.add_argument('--sparsity', type=float, default=90.0)
     parser.add_argument('--repeat', type=int, default=5)
     parser.add_argument('--device', default=None)
+    parser.add_argument('--backend', default='auto',
+                        choices=['auto', 'xpu-gather',
+                                 'xpu-triton-int8', 'xpu-flex'])
     parser.add_argument('--profile', action='store_true',
                         help='break the Veda time down by phase (CUDA)')
     args = parser.parse_args()
     device = torch.device(args.device or (
         'cuda' if torch.cuda.is_available() else
+        'xpu' if torch.xpu.is_available() else
         'mps' if torch.backends.mps.is_available() else 'cpu'))
     grid = (args.latent_t, *CANVAS[args.aspect])
     text, audio = 512, 2 * round(args.latent_t * 17 / 5 / 24 * 40)
@@ -84,7 +94,14 @@ def main() -> None:
     spec = h3_layout.LayoutSpec(seq_len, h3_layout.SpanSpec(
         'target', text + audio, grid), ())
     resolution = backends.resolve(device, notify=lambda t: print('...', t))
-    print(f'{resolution.device.label}: {resolution.report()}')
+    if args.backend != 'auto':
+        info = hardware.describe(device)
+        chosen = backends._load(args.backend, info)
+        base.self_test(chosen, device)
+        resolution.backend = chosen
+    label = (resolution.backend.name if resolution.backend
+             else resolution.report())
+    print(f'{resolution.device.label}: {label}')
     if resolution.backend is None:
         sys.exit('no sparse backend works here')
     bundle = _random_bundle(grid)

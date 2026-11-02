@@ -27,3 +27,5 @@ feature 文档的「踩坑记录」，并在 `pitfalls.md` 加一行索引。
 ## 验证记录           （日期、硬件、commit、结果）
 ## 待办
 ```
+
+Intel XPU experiment: [implementation and acceptance notes](features/intel_xpu.md).

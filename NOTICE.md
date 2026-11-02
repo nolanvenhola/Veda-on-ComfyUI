@@ -14,3 +14,5 @@
 * **Veda predictor weights** (downloaded at run time, not shipped here) —
   MiniMax H3 Community License, inherited from MiniMax-H3.
 * **Icon** — the Miowtion logo (`assets/icon.svg`), MIT.
+
+Intel XPU kernel copy: `veda_comfy/kernels/xpu/sparse_int8.py` derives from Veda's SageAttention-v1-based INT8 implementation. The existing SageAttention BSD-3-Clause attribution also applies to this independent Intel port.

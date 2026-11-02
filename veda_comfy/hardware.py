@@ -133,6 +133,13 @@ def _describe(device_str: str) -> DeviceInfo:
         return DeviceInfo('cuda', index, props.name, cc, family, subtype,
                           os_name, machine, props.total_memory, unified,
                           torch.version.cuda)
+    if device.type == 'xpu':
+        index = device.index if device.index is not None else (
+            torch.xpu.current_device())
+        props = torch.xpu.get_device_properties(index)
+        return DeviceInfo('xpu', index, props.name, None, 'xpu',
+                          'intel-arc', os_name, machine,
+                          props.total_memory, False, None)
     if device.type == 'mps':
         # `sysctl -n machdep.cpu.brand_string` gives a prettier string
         # ("Apple M3 Pro" vs "arm"), but shelling out for a display label
@@ -154,6 +161,8 @@ def describe(device: torch.device | str) -> DeviceInfo:
     device = torch.device(device)
     if device.type == 'cuda' and device.index is None:
         device = torch.device('cuda', torch.cuda.current_device())
+    if device.type == 'xpu' and device.index is None:
+        device = torch.device('xpu', torch.xpu.current_device())
     return _describe(str(device))
 
 

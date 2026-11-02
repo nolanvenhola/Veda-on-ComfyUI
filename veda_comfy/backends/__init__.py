@@ -3,6 +3,7 @@
     CUDA sm80 and up    triton-int8
     ROCm gfx11, gfx12   triton-int8
     Apple MPS           mlx
+    Intel XPU           xpu-flex (experimental)
     anything else       nothing (the node stops with an error)
 
 One kernel per device family, no fallback chain and nothing for the user
@@ -33,7 +34,10 @@ import torch
 from . import base
 from .. import hardware
 
-_MODULES = {'triton-int8': 'triton_int8', 'mlx': 'mlx_gather'}
+_MODULES = {'triton-int8': 'triton_int8', 'mlx': 'mlx_gather',
+            'xpu-gather': 'xpu_gather',
+            'xpu-triton-int8': 'xpu_triton',
+            'xpu-flex': 'xpu_flex'}
 _MIN_CC = (8, 0)
 # RDNA3 and RDNA4, where Triton lowers the kernel's int8 dot to WMMA.
 _ROCM_ARCHS = ('gfx11', 'gfx12')
@@ -81,6 +85,8 @@ def candidates(info: hardware.DeviceInfo) -> list[str]:
         return ['triton-int8'] if info.family.startswith(_ROCM_ARCHS) else []
     if info.kind == 'cuda' and info.cc:
         return ['triton-int8'] if info.cc >= _MIN_CC else []
+    if info.kind == 'xpu':
+        return ['xpu-flex']
     if info.kind == 'mps':
         return ['mlx']
     return []

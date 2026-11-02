@@ -60,3 +60,5 @@
 ## 验证记录
 
 见 [../hardware.md](../hardware.md)。
+
+Intel XPU experiment: [implementation and acceptance notes](intel_xpu.md).

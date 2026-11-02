@@ -19,3 +19,5 @@ ComfyUI 内部接口：`transformer_options` 的 `optimized_attention_override`�
 `sample_sigmas`；`ModelPatcher.add_callback_with_key`（`ON_PREPARE_STATE`、`ON_CLEANUP`）；
 `folder_paths.folder_names_and_paths`；`comfy.utils.ProgressBar`；
 `PromptServer.send_progress_text`。
+
+Intel XPU experiment: [implementation and acceptance notes](features/intel_xpu.md).

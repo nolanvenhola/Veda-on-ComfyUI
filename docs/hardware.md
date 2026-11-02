@@ -187,3 +187,5 @@
   - 过程中修掉的 Windows / ComfyUI 问题见 pitfalls.md（QuACK 的 fcntl 与 Triton、malloc graph
     abort、安装后同进程 import 缓存、cp1252 控制台）。生成的视频待人工对比确认。
 
+
+Intel XPU experiment: [implementation and acceptance notes](features/intel_xpu.md).

@@ -183,3 +183,9 @@ from its base model. See
   year={2026}
 }
 ```
+
+## Experimental Intel fork
+
+Intel XPU work is isolated and not yet approved for production. Use the existing PyTorch XPU environment without installing the generic Triton requirements. See [Intel validation notes](docs/features/intel_xpu.md).
+
+The experimental Intel backend now selects compiled XPU FlexAttention. Warm synthetic attention benchmarks measured 2.38x (5-second shape) and 4.01x (14-second shape), not whole-generation speedups.

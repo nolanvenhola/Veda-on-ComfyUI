@@ -22,6 +22,9 @@ def _devices():
     if torch.cuda.is_available():
         return [torch.device('cuda', i)
                 for i in range(torch.cuda.device_count())]
+    if torch.xpu.is_available():
+        return [torch.device('xpu', i)
+                for i in range(torch.xpu.device_count())]
     if torch.backends.mps.is_available():
         return [torch.device('mps')]
     return []
