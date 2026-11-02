@@ -87,3 +87,41 @@ silently falling back to an unusably slow eager path. A GPU regression
 varies eleven head counts under a four-graph recompilation limit.
 
 Padded heads have zero selected blocks, are discarded after attention, and never modify real-head masks or output values. Dynamic compilation handles sequence geometry; fullgraph forbids a silent eager fallback.
+
+
+## Completed Windows R2VA smoke test
+
+Revision 756d0a8 passed 163 tests, three skipped; Ruff passed. The revised
+fixed-head implementation measured 508.9/209.4 ms dense/sparse (2.43x) at
+38,228 tokens, and 3999.4/935.0 ms (4.28x) at 104,484 tokens, three repeats.
+
+A real 1024x576, 124-frame, eight-step R2VA test completed using the 32-tile
+predictor budget, seed 42, RES multistep/Beta, the existing quantized Eros
+checkpoint and Turbo LoRA. Dense sampling took 176.4 seconds; sparse took
+171.4 seconds (2.8% shorter). Total times were 369.8 and 309.5 seconds, but
+preparation/cache and device-selection conditions differed. Do not claim
+that the entire total-time difference is a Veda speedup. Real attention
+computed was 39.4%, and 27% of tiles were padding at the nearest trained
+geometry. Both files contain H.264 video and non-silent AAC audio.
+
+Windows multi-GPU pinning matters in this exact environment. A real-plan
+attention group took about 3.69 seconds with ONEAPI_DEVICE_SELECTOR, versus
+0.011-0.016 seconds after warmup with both B70s visible and explicit device
+selection. The underlying compiler/driver cause is not yet established.
+ZE_AFFINITY_MASK caused XPU device discovery to crash in this build, and
+legacy SYCL_DEVICE_FILTER did not isolate a card. Neither was adopted.
+
+The test uses --default-device 1 with both GPUs visible. ComfyUI 0.43.0
+needed the following XPU handling in get_torch_device(), which preserves
+existing behavior when no default-device flag is provided:
+
+```python
+if is_intel_xpu():
+    if args.default_device is not None:
+        torch.xpu.set_device(args.default_device)
+    return torch.device("xpu", torch.xpu.current_device())
+```
+
+No VRAM pooling or model parallelism is involved. Production workers and
+normal workflows were not switched to Veda. Matched human video review
+and a representative longer generation remain prerequisites for rollout.

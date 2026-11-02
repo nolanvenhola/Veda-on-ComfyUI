@@ -188,4 +188,6 @@ from its base model. See
 
 Intel XPU work is isolated and not yet approved for production. Use the existing PyTorch XPU environment without installing the generic Triton requirements. See [Intel validation notes](docs/features/intel_xpu.md).
 
-The experimental Intel backend now selects compiled XPU FlexAttention. Warm synthetic attention benchmarks measured 2.38x (5-second shape) and 4.01x (14-second shape), not whole-generation speedups.
+The experimental Intel backend now selects compiled XPU FlexAttention. Warm synthetic attention benchmarks measured 2.43x (5-second shape) and 4.28x (14-second shape), not whole-generation speedups.
+
+A real short R2VA video completed with audio; sampling improved only 2.8% at 0.59 MP. Windows GPU pinning details and rollout limits are recorded in the Intel notes.
