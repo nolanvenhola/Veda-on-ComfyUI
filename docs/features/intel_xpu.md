@@ -78,3 +78,12 @@ Windows build. Production ComfyUI workers have not been changed by these
 standalone tests. Keep the plugin opt-in until matched video review.
 
 Acceptance run: 162 tests passed, 3 skipped; Ruff passed. GPU acceptance covered both B70 devices, bf16/fp16, mask semantics, padding, empty rows and cross-device launches. The skipped checks were CUDA-only arithmetic comparisons and an unrelated optional path. Human video quality review is still pending.
+
+The first real H3 attempt exposed a fixed-shape compiler-cache problem:
+head-group sizes change by layer. `torch.compile(dynamic=True,
+fullgraph=True)` is required. The backend pads each head batch to eight heads because Intel
+FlexAttention still specialises heads under dynamic compilation; fullgraph makes cache/graph failures explicit instead of
+silently falling back to an unusably slow eager path. A GPU regression
+varies eleven head counts under a four-graph recompilation limit.
+
+Padded heads have zero selected blocks, are discarded after attention, and never modify real-head masks or output values. Dynamic compilation handles sequence geometry; fullgraph forbids a silent eager fallback.

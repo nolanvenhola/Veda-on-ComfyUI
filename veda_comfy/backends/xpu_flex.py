@@ -14,7 +14,7 @@ from ..core import tiling
 
 @functools.cache
 def _compiled():
-    return torch.compile(flex_attention, dynamic=False)
+    return torch.compile(flex_attention, dynamic=True, fullgraph=True)
 
 
 class XpuFlexBackend(base.Backend):
@@ -27,23 +27,42 @@ class XpuFlexBackend(base.Backend):
 
     @torch.no_grad()
     def attend(self, q, k, v, block_mask, layout):
-        selected = block_mask & layout.kv_ok
-        counts = selected.sum(-1, dtype=torch.int32)[None].contiguous()
-        order = torch.argsort((~selected).to(torch.int8), dim=-1,
-                              stable=True)[None].to(torch.int32)
+        # Intel FlexAttention specialises the head dimension even when
+        # dynamic=True. H3 changes group sizes per layer: normalise to
+        # eight heads so a run cannot exhaust the compiler cache.
+        batch_heads = 8
         valid = layout.slot_valid.bool()
 
         def mask_mod(batch, head, query, key):
             return valid[key]
 
-        sparse = BlockMask.from_kv_blocks(
-            counts, order, BLOCK_SIZE=tiling.TILE_SIZE, mask_mod=mask_mod,
-            seq_lengths=(q.shape[0], k.shape[0]), compute_q_blocks=False)
-        with torch.xpu.device(q.device):
-            result = _compiled()(
-                q.transpose(0, 1)[None], k.transpose(0, 1)[None],
-                v.transpose(0, 1)[None], block_mask=sparse)
-        return result[0].transpose(0, 1).contiguous()
+        pieces = []
+        for first in range(0, q.shape[1], batch_heads):
+            last = min(q.shape[1], first + batch_heads)
+            real_heads = last - first
+            selected = block_mask[first:last] & layout.kv_ok
+            counts = selected.sum(-1, dtype=torch.int32)
+            order = torch.argsort((~selected).to(torch.int8), dim=-1,
+                                  stable=True).to(torch.int32)
+            tensors = [x[:, first:last].transpose(0, 1)[None].contiguous()
+                       for x in (q, k, v)]
+            if real_heads < batch_heads:
+                missing = batch_heads - real_heads
+                counts = torch.cat((counts, counts.new_zeros(
+                    missing, counts.shape[1])), dim=0)
+                order = torch.cat((order, order.new_zeros(
+                    missing, order.shape[1], order.shape[2])), dim=0)
+                tensors = [torch.cat((x, x.new_zeros(
+                    1, missing, x.shape[2], x.shape[3])), dim=1)
+                           for x in tensors]
+            sparse = BlockMask.from_kv_blocks(
+                counts[None].contiguous(), order[None].contiguous(),
+                BLOCK_SIZE=tiling.TILE_SIZE, mask_mod=mask_mod,
+                seq_lengths=(q.shape[0], k.shape[0]), compute_q_blocks=False)
+            with torch.xpu.device(q.device):
+                result = _compiled()(*tensors, block_mask=sparse)
+            pieces.append(result[0, :real_heads].transpose(0, 1))
+        return torch.cat(pieces, dim=1).contiguous()
 
 
 def create(info) -> base.Backend:

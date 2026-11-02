@@ -27,3 +27,5 @@
 | 双采工作流下画面周期性闪烁（约 1.1 秒一个周期） | 等代价比例预算随网格面积缩放，第一段在 0.33x 网格上只剩 5.5 个 tile/行；余数被 Bresenham 在相邻行之间摊成 5/6，而相邻 tile 行是时间上相邻的块，于是上下文每隔一个时间块摆动 20% | 默认改成固定 32 个 tile（不随网格变化，没有余数）；另提供 adaptive（Sol-Attn 的 tau 阈值） | [core_selection](features/core_selection.md) |
 
 Intel XPU experiment: [implementation and acceptance notes](features/intel_xpu.md).
+
+Intel H3: static FlexAttention compilation exhausts the graph cache as head groups vary; use dynamic fullgraph compilation and the variable-head GPU regression.
